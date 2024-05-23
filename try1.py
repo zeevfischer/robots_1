@@ -40,7 +40,8 @@ def display_map(image_path, drone_pos_cm):
     pygame.display.set_caption('Map Viewer')
 
     # Convert initial drone position from cm to pixels
-    drone_pos_px = [drone_pos_cm[0] / PIXELS_PER_CM, drone_pos_cm[1] / PIXELS_PER_CM]
+    # drone_pos_px = [drone_pos_cm[0] / PIXELS_PER_CM, drone_pos_cm[1] / PIXELS_PER_CM]
+    drone_pos_px = [drone_pos_cm[0], drone_pos_cm[1]]
 
     # Start time
     start_time = time.time()
@@ -61,14 +62,24 @@ def display_map(image_path, drone_pos_cm):
                 pygame.quit()
                 sys.exit()
             elif event.type == KEYDOWN:
+                new_pos_px = drone_pos_px.copy()  # Added line
                 if event.key == K_UP:
-                    drone_pos_px[1] -= DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
+                    new_pos_px[1] -= DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
                 elif event.key == K_DOWN:
-                    drone_pos_px[1] += DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
+                    new_pos_px[1] += DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
                 elif event.key == K_LEFT:
-                    drone_pos_px[0] -= DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
+                    new_pos_px[0] -= DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
                 elif event.key == K_RIGHT:
-                    drone_pos_px[0] += DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
+                    new_pos_px[0] += DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
+
+                print("pos x: " + str(new_pos_px[0]) + "  pos y: " + str(new_pos_px[1]))
+
+                # Check if the new position is within the white area
+                new_x, new_y = int(new_pos_px[0]), int(new_pos_px[1])
+                if 0 <= new_x < map_width and 0 <= new_y < map_height:
+                    color = map_image.get_at((new_x, new_y))
+                    if color == WHITE or color == YELLOW:
+                        drone_pos_px = new_pos_px  # Update only if the new position is valid
 
         # Draw the image onto the screen
         screen.blit(map_image, (0, 0))
@@ -99,6 +110,7 @@ def draw_drone_and_detect(screen, drone_pos_px, map_image):
 
 
 # Function to detect the map area and color it yellow
+# this needs to happen 10 times per second !!
 def detect_and_color(screen, center_x, center_y, map_image):
     directions = [
         (0, -DETECTION_RANGE_PX),  # Forward (up)
@@ -132,6 +144,6 @@ if __name__ == "__main__":
     image_path = "C:\\Users\\dovy4\\Desktop\\אוניברסיטה גיבוי 3.3.2022\\שנה ד סמסטר ב\\רובוטים אוטונומיים\\מטלה 1\\EX1\\Maps\\p11.png"
 
     # Drone position in cm (x, y)
-    drone_position_cm = (100, 150)  # Example position
+    drone_position_cm = (110, 70)  # Example position
 
     display_map(image_path, drone_position_cm)
