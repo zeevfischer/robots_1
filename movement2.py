@@ -17,7 +17,7 @@ DRONE_RADIUS_PX = int(DRONE_RADIUS_CM / PIXELS_PER_CM)
 SENSOR_RATE = 10  # 10 times per second
 BATTERY_LIFE_MINUTES = 8
 BATTERY_LIFE_SECONDS = BATTERY_LIFE_MINUTES * 60
-DRONE_SPEED_CM_PER_SEC = 400  # 1 meter per second
+DRONE_SPEED_CM_PER_SEC = 100  # 1 meter per second
 DRONE_SPEED_PX_PER_SEC = int(DRONE_SPEED_CM_PER_SEC / PIXELS_PER_CM)
 
 # Colors
@@ -42,7 +42,7 @@ TO DO
 """
 
 # Load the map image
-image_path = "C:\\Users\\dovy4\\Desktop\\אוניברסיטה גיבוי 3.3.2022\\שנה ד סמסטר ב\\רובוטים אוטונומיים\\מטלה 1\\EX1\\Maps\\p11.png"
+image_path = "C:\\Users\\dovy4\\Desktop\\אוניברסיטה גיבוי 3.3.2022\\שנה ד סמסטר ב\\רובוטים אוטונומיים\\מטלה 1\\EX1\\Maps\\p12.png"
 map_image = pygame.image.load(image_path)
 map_width, map_height = map_image.get_size()
 

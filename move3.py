@@ -29,6 +29,12 @@ YELLOW = (255, 255, 0)
 TEXT_COLOR = (255, 255, 255)
 POINT_HISTORY = []
 
+# Global variables for detection distances
+detect_distance_up = float('inf')
+detect_distance_down = float('inf')
+detect_distance_right = float('inf')
+detect_distance_left = float('inf')
+
 """
 TO DO
 1 adjust the distance the drone can be from the wall !! now it can reach to close 
@@ -62,6 +68,7 @@ def display_map(image_path, drone_pos_cm):
     start_time = time.time() # Start time
     font = pygame.font.Font(None, 24) # Font for displaying text
 
+    dir = -1
     # Main loop to keep the window open
     while True:
         current_time = time.time()
@@ -70,35 +77,49 @@ def display_map(image_path, drone_pos_cm):
         minutes_remaining = int(time_remaining // 60)
         seconds_remaining = int(time_remaining % 60)
 
-        for event in pygame.event.get():
-            if event.type == QUIT or elapsed_time >= BATTERY_LIFE_SECONDS:
-                pygame.quit()
-                sys.exit()
-            elif event.type == KEYDOWN:
-                new_pos_px = drone_pos_px.copy()  # Added line
-                if event.key == K_UP:
-                    new_pos_px[1] -= DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
-                elif event.key == K_DOWN:
-                    new_pos_px[1] += DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
-                elif event.key == K_LEFT:
-                    new_pos_px[0] -= DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
-                elif event.key == K_RIGHT:
-                    new_pos_px[0] += DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
+        old_drone_pos_px = []
 
-                print("pos x: " + str(new_pos_px[0]) + "  pos y: " + str(new_pos_px[1]))
-
-                # # Check if the new position is within the white area
-                # new_x, new_y = int(new_pos_px[0]), int(new_pos_px[1])
-                # if 0 <= new_x < map_width and 0 <= new_y < map_height:
-                #     color = map_image.get_at((new_x, new_y))
-                #     if color == WHITE or color == YELLOW:
-                #         drone_pos_px = new_pos_px  # Update only if the new position is valid
-
-                # Check if the new position is within the white area and adjust if too close to walls
-                if validate_and_adjust_position(new_pos_px, map_image, map_width, map_height):
-                    drone_pos_px = new_pos_px  # Update only if the new position is valid
+        # calculate the closest wall only once for now !
+        direction = closes_wall(screen,drone_pos_px)
+        drone_pos_px = move_drone(drone_pos_px,map_image,direction)
 
 
+
+
+
+
+
+
+
+        # for event in pygame.event.get():
+        #     if event.type == QUIT or elapsed_time >= BATTERY_LIFE_SECONDS:
+        #         pygame.quit()
+        #         sys.exit()
+        #     elif event.type == KEYDOWN:
+        #         new_pos_px = drone_pos_px.copy()  # Added line
+        #         if event.key == K_UP:
+        #             new_pos_px[1] -= DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
+        #         elif event.key == K_DOWN:
+        #             new_pos_px[1] += DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
+        #         elif event.key == K_LEFT:
+        #             new_pos_px[0] -= DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
+        #         elif event.key == K_RIGHT:
+        #             new_pos_px[0] += DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
+        #
+        #         print("pos x: " + str(new_pos_px[0]) + "  pos y: " + str(new_pos_px[1]))
+        #
+        #         # # Check if the new position is within the white area
+        #         # new_x, new_y = int(new_pos_px[0]), int(new_pos_px[1])
+        #         # if 0 <= new_x < map_width and 0 <= new_y < map_height:
+        #         #     color = map_image.get_at((new_x, new_y))
+        #         #     if color == WHITE or color == YELLOW:
+        #         #         drone_pos_px = new_pos_px  # Update only if the new position is valid
+        #
+        #         # Check if the new position is within the white area and adjust if too close to walls
+        #         if validate_and_adjust_position(new_pos_px, map_image, map_width, map_height):
+        #             drone_pos_px = new_pos_px  # Update only if the new position is valid
+        #
+        #
         screen.blit(map_image, (0, 0)) # Draw the image onto the screen
         draw_drone_and_detect(screen, drone_pos_px, map_image) # Draw the drone and its detection range on the map
         draw_text(screen, f"Time Remaining: {minutes_remaining:02d}:{seconds_remaining:02d}", font, TEXT_COLOR,(10, 10)) # Draw the time remaining
@@ -107,9 +128,69 @@ def display_map(image_path, drone_pos_cm):
         """
         this may need updating or deleting
         """
-        time.sleep(1 / SENSOR_RATE) # Sleep to simulate the sensor update rate
+        time.sleep(10 / SENSOR_RATE) # Sleep to simulate the sensor update rate
 
+'''
+now we need a function that will take us in a different direction after reaching the nearest wall 
+ideally to the place where we detect more space not less !
+'''
+# def empty_space_directio(screen, drone_pos_px, old_direction):
+#     # we went up down
+#     if old_direction[0] == 0:
+#
+#
+#     # we went left right
+#     if old_direction[1] == 0:
 
+'''
+the drone needs to move 100m per second
+the calculation may not be in this function ass it also needs to draw and detect 10 times in this movement  
+so here we will move it DRONE_SPEED_CM_PER_SEC/SENSOR_RATE 
+'''
+def closes_wall(screen, drone_pos_px):
+    directions = [
+        (0, -1),  # Up
+        (0, 1),  # Down
+        (1, 0),  # Right
+        (-1, 0)  # Left
+    ]
+
+    min_dist = float('inf')
+    direction = (0, 0)
+
+    for dx, dy in directions:
+        for i in range(1, DETECTION_RANGE_PX + 1):
+            x = drone_pos_px[0] + dx * i
+            y = drone_pos_px[1] + dy * i
+            if 0 <= x < screen.get_width() and 0 <= y < screen.get_height():
+                color = screen.get_at((int(x), int(y)))
+                if color == BLACK:
+                    dist = i
+                    if dist < min_dist:
+                        min_dist = dist
+                        direction = (dx, dy)
+                    break
+
+    return direction
+def move_drone(current_pos_px, map_image, movement_direction):
+    map_width, map_height = map_image.get_size()
+    dx = movement_direction[0]
+    dy = movement_direction[1]
+    if(dx == 0):
+        new_x = current_pos_px[0]
+    else:
+        new_x = current_pos_px[0] + ((DRONE_SPEED_PX_PER_SEC/SENSOR_RATE) * dx)
+    if(dy == 0):
+        new_y = current_pos_px[1]
+    else:
+        new_y = current_pos_px[1] + ((DRONE_SPEED_PX_PER_SEC / SENSOR_RATE) * dy)
+
+    new_pos_px =[new_x,new_y]
+    if 0 <= new_x < map_width and 0 <= new_y < map_height:
+        if validate_and_adjust_position(new_pos_px, map_image, map_width, map_height):
+            return [new_x, new_y]
+
+    return current_pos_px
 def validate_and_adjust_position(drone_pos_px, map_image, map_width, map_height):
     safe_distance_px = int(25 / PIXELS_PER_CM)
 
@@ -131,7 +212,6 @@ def validate_and_adjust_position(drone_pos_px, map_image, map_width, map_height)
 
     color = map_image.get_at((new_x, new_y))
     return color == WHITE or color == YELLOW
-
 # Function to draw the drone and its detection range on the map
 def draw_drone_and_detect(screen, drone_pos_px, map_image):
     center_x, center_y = int(drone_pos_px[0]), int(drone_pos_px[1])
@@ -162,6 +242,7 @@ def detect_and_color(screen, center_x, center_y, map_image):
     inf_directions = []
 
     for dx, dy in directions:
+        detected_distance = float('inf')
         for i in range(1, DETECTION_RANGE_PX + 1):
             x = center_x + dx * i // DETECTION_RANGE_PX
             y = center_y + dy * i // DETECTION_RANGE_PX
@@ -174,7 +255,20 @@ def detect_and_color(screen, center_x, center_y, map_image):
                     screen.set_at((x, y), YELLOW)
                     map_image.set_at((x, y), YELLOW)
                 elif color == BLACK:
+                    detected_distance = i
                     break
+        if detected_distance == float('inf'):
+            inf_count += 1
+            inf_directions.append((dx, dy))
+        else:
+            if dx == 0 and dy == -1:
+                detect_distance_up = detected_distance
+            elif dx == 0 and dy == 1:
+                detect_distance_down = detected_distance
+            elif dx == 1 and dy == 0:
+                detect_distance_right = detected_distance
+            elif dx == -1 and dy == 0:
+                detect_distance_left = detected_distance
 
     if inf_count >= 2:
         Point_displacement(screen,center_x, center_y,inf_directions)
@@ -199,8 +293,6 @@ def Point_displacement(screen,center_x, center_y, inf_directions): # fix do calc
 
     # Print the point for testing purposes
     print("New Point:", new_point)
-
-
 """
 Function to draw text on the screen
 and may be deleted and simply moved to the main loop in display_map 
@@ -208,7 +300,6 @@ and may be deleted and simply moved to the main loop in display_map
 def draw_text(screen, text, font, color, position):
     text_surface = font.render(text, True, color)
     screen.blit(text_surface, position)
-
 # Main function
 if __name__ == "__main__":
     # Path to the image file
