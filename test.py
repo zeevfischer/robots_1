@@ -73,6 +73,6 @@
 # for i in range(1,10):
 #     print (i)
 
-i = float('inf')
-h=5
-print(max(i,h))
+# i = float('inf')
+# h=5
+# print(max(i,h))

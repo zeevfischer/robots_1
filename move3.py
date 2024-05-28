@@ -66,11 +66,15 @@ def display_map(image_path, drone_pos_cm):
     start_time = time.time() # Start time
     font = pygame.font.Font(None, 24) # Font for displaying text
 
-    # Main loop to keep the window open
-    # old_direction = []
     # calculate the closest wall for start
     direction = closest_wall_direction(screen, drone_pos_px)
+    following_wall_direction = direction
+    main_movment_direction = direction
+    prev_dist_wall = float('inf')
+    # Main loop to keep the window open
+    p = False
     while True:
+        dist_dict = {(0, -1): detect_distance_up, (0, 1): detect_distance_down, (-1, 0): detect_distance_left,(1, 0): detect_distance_right}  # up down right left
         current_time = time.time()
         elapsed_time = current_time - start_time
         time_remaining = max(0, BATTERY_LIFE_SECONDS - elapsed_time)
@@ -78,70 +82,42 @@ def display_map(image_path, drone_pos_cm):
         seconds_remaining = int(time_remaining % 60)
 
         # movement
-        potential_position = move_drone(drone_pos_px,map_image,direction)
+        potential_position_wall = move_drone(drone_pos_px,map_image,following_wall_direction)
+        potential_position_main_movment = move_drone(drone_pos_px, map_image, main_movment_direction)
+        if p:
+            if potential_position_main_movment is not None:
+                potential_position_wall = None
 
-        # validate position !!!
-        if 0 <= potential_position[0] < map_width and 0 <= potential_position[1] < map_height:
+        if potential_position_wall is not None: # if i can go to the wall go
+            drone_pos_px = potential_position_wall
+            direction = following_wall_direction
 
-            # if (direction == [0,-1] and detect_distance_up <= 25) or (direction == [0,1] and detect_distance_down <= 25) or (direction == [1,0] and detect_distance_right <= 25) or (direction == [-1,0] and detect_distance_left <= 25): # direction will only change if i cant move in my current direction
-            #     # go to farthest inf detected
-            #     direction = direction_change(old_direction)
-            #     potential_position = move_drone(drone_pos_px, map_image, direction)
+        elif (potential_position_wall is None) and (potential_position_main_movment is not None): # if not the wall try new movment direction
+            drone_pos_px = potential_position_main_movment
+            direction = main_movment_direction
 
-            if validate_and_adjust_position(potential_position, map_image, map_width, map_height):
-                drone_pos_px = potential_position
-            else:
-                # old_direction = direction
-                direction = direction_change(direction)
+        elif (dist_dict[tuple(main_movment_direction)] > 30) and (potential_position_main_movment is None): # i detected but could not go
+            opesit_wall = [following_wall_direction[0]*-1,following_wall_direction[1]*-1]
+            drone_pos_px = move_drone(drone_pos_px,map_image,opesit_wall)
 
+        elif (potential_position_wall is None) and (potential_position_main_movment is None) and (following_wall_direction ==  main_movment_direction): #if i cant got ither way and its the start
+            main_movment_direction = direction_change(main_movment_direction)
 
+        elif (potential_position_wall is None) and (potential_position_main_movment is None): # this hopefully is when i am in a corner
+            following_wall_direction = main_movment_direction
 
+        prev_dist_wall = dist_dict[tuple(following_wall_direction)]
 
-        # # if we got there and cant move !
-        # if drone_pos_px[0] == old_drone_pos_px[0] and drone_pos_px[1] == old_drone_pos_px[1]:
-        #     # go to farthest inf detected
-        #     empty_space_direction(direction)
-
-
-
-
-
-
-
-
-
-
-        # for event in pygame.event.get():
-        #     if event.type == QUIT or elapsed_time >= BATTERY_LIFE_SECONDS:
-        #         pygame.quit()
-        #         sys.exit()
-        #     elif event.type == KEYDOWN:
-        #         new_pos_px = drone_pos_px.copy()  # Added line
-        #         if event.key == K_UP:
-        #             new_pos_px[1] -= DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
-        #         elif event.key == K_DOWN:
-        #             new_pos_px[1] += DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
-        #         elif event.key == K_LEFT:
-        #             new_pos_px[0] -= DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
-        #         elif event.key == K_RIGHT:
-        #             new_pos_px[0] += DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
-        #
-        #         print("pos x: " + str(new_pos_px[0]) + "  pos y: " + str(new_pos_px[1]))
-        #
-        #         # # Check if the new position is within the white area
-        #         # new_x, new_y = int(new_pos_px[0]), int(new_pos_px[1])
-        #         # if 0 <= new_x < map_width and 0 <= new_y < map_height:
-        #         #     color = map_image.get_at((new_x, new_y))
-        #         #     if color == WHITE or color == YELLOW:
-        #         #         drone_pos_px = new_pos_px  # Update only if the new position is valid
-        #
-        #         # Check if the new position is within the white area and adjust if too close to walls
-        #         if validate_and_adjust_position(new_pos_px, map_image, map_width, map_height):
-        #             drone_pos_px = new_pos_px  # Update only if the new position is valid
-        #
-        #
         screen.blit(map_image, (0, 0)) # Draw the image onto the screen
         draw_drone_detect_and_color(screen, drone_pos_px, map_image) # Draw the drone and its detection range on the map
+
+        temp = radical_change(prev_dist_wall,following_wall_direction,direction)
+        if temp:
+            save = following_wall_direction
+            following_wall_direction = [main_movment_direction[0] * -1, main_movment_direction[1] * -1]
+            main_movment_direction = save
+            p = True
+
         draw_text(screen, f"Time Remaining: {minutes_remaining:02d}:{seconds_remaining:02d}", font, TEXT_COLOR,(10, 10)) # Draw the time remaining
         pygame.display.update() # Update the display
 
@@ -149,6 +125,13 @@ def display_map(image_path, drone_pos_cm):
         this may need updating or deleting
         """
         time.sleep(1 / SENSOR_RATE) # Sleep to simulate the sensor update rate
+
+def radical_change(last_wall_dist,wall_direction,movment_direction):
+    dist_dict = {(0, -1): detect_distance_up, (0, 1): detect_distance_down, (-1, 0): detect_distance_left,(1, 0): detect_distance_right}  # up down right left
+    if last_wall_dist * 2 < dist_dict[tuple(wall_direction)] and wall_direction[0] != movment_direction[0]:  # we lost the wall direction went != wall direction
+        # following_wall_direction = [main_movment_direction[0] * -1, main_movment_direction[1] * -1]
+        return True
+    return False
 
 '''
 now we need a function that will take us in a different direction after reaching the nearest wall 
@@ -225,14 +208,17 @@ def move_drone(current_pos_px, map_image, movement_direction):
         new_y = current_pos_px[1]
     else:
         new_y = current_pos_px[1] + ((DRONE_SPEED_PX_PER_SEC / SENSOR_RATE) * dy)
-
     new_pos_px =[new_x,new_y]
-    return new_pos_px
+
+    if 0 <= new_pos_px[0] < map_width and 0 <= new_pos_px[1] < map_height:
+        if validate_and_adjust_position(new_pos_px, map_image, map_width, map_height):
+            return new_pos_px
+    return None
 '''
 this returns true or false if the new position is good 
 '''
 def validate_and_adjust_position(drone_pos_px, map_image, map_width, map_height):
-    safe_distance_px = int(25 / PIXELS_PER_CM)
+    safe_distance_px = int(20 / PIXELS_PER_CM)
 
     new_x, new_y = int(drone_pos_px[0]), int(drone_pos_px[1])
 
