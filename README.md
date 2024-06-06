@@ -28,9 +28,9 @@ The drone is represented by a red dot, and every space the drone detects gets co
 ### Pros and cons
 This algorithm is excellent for maze-like maps; however, if there are empty spaces or objects in the middle of the map, the drone may miss some or even most of the map. Ideally, this will be fixed along the road as this assignment progresses.   
 Moreover, the initial location of the drone is also important. With this algorithm in mind, the drone should ideally start at the edge of the map. If it starts in the middle and there are detached areas in the map, the drone may be caught in an endless loop around that space.   
-However, if we start at an edge, the drone can follow a maze superbly. 
+However, if we start at an edge, the drone can follow a maze superbly.    
 If you examine our code, you will see that we did not change the rotation of the drone. Instead, we found it easier to work with left, right, forward, and backward movements. However, this too may change in the future as the project progresses.   
-For the drone movement, there are two main variables: one is for the wall direction that we are following, and the second is the main movement direction if we are close enough to the wall.   
+For the drone movement, there are two main variables: one is for the wall direction that we are following, and the second is the main movement direction if we are close enough to the wall.    
 
 ## How To Run
 **Noat: Basic understanding of running code is required. There are no special downloads needed; however, keep in mind that some workspaces may differ from others.**
