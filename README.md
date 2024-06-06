@@ -13,7 +13,7 @@ daniel musai: 206684755
 1. Each pixel on the map represents 2.5 cm
 2. on the map WHITE pixel is a path BLACK pixel is an obstacle
 3. Drone radius is 10 cm
-4. six distace secsers up,down,front,back,left,right
+4. six distace secsers up,down,front,back,left,right Thet can detect up to 0-3 meters.
 5. speed 1-3 meters per second with an acceleration of 1 meter per second
 6. battery life up to 8 minits
 7. orientation sensor (IMU)
