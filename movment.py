@@ -1,22 +1,23 @@
 import pygame
 import sys
 import time
-import random
 from pygame.locals import QUIT, KEYDOWN, K_UP, K_DOWN, K_LEFT, K_RIGHT
+
+from point import Point
 
 # Initialize Pygame
 pygame.init()
 
 # Constants
 PIXELS_PER_CM = 2.5
-DETECTION_RANGE_CM = 300
+DETECTION_RANGE_CM = 300  # 300
 DETECTION_RANGE_PX = int(DETECTION_RANGE_CM / PIXELS_PER_CM)
 DRONE_RADIUS_CM = 10
 DRONE_RADIUS_PX = int(DRONE_RADIUS_CM / PIXELS_PER_CM)
 SENSOR_RATE = 10  # 10 times per second
 BATTERY_LIFE_MINUTES = 8
 BATTERY_LIFE_SECONDS = BATTERY_LIFE_MINUTES * 60
-DRONE_SPEED_CM_PER_SEC = 1000  # 1 meter per second
+DRONE_SPEED_CM_PER_SEC = 100  # 100 # 1 meter per second
 DRONE_SPEED_PX_PER_SEC = int(DRONE_SPEED_CM_PER_SEC / PIXELS_PER_CM)
 
 # Colors
@@ -26,30 +27,26 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 YELLOW = (255, 255, 0)
 TEXT_COLOR = (255, 255, 255)
+POINT_HISTORY = []
+
+# Global variables for detection distances
+detect_distance_up = float('inf')
+detect_distance_down = float('inf')
+detect_distance_right = float('inf')
+detect_distance_left = float('inf')
 
 
-# Function to load and display the map
 def display_map(image_path, drone_pos_cm):
-    # Load the image
-    map_image = pygame.image.load(image_path)
-
-    # Get the size of the image in pixels
-    map_width, map_height = map_image.get_size()
-
-    # Create a window with the size of the image
-    screen = pygame.display.set_mode((map_width, map_height))
+    map_image = pygame.image.load(image_path)  # Load the image
+    map_width, map_height = map_image.get_size()  # Get the size of the image in pixels
+    screen = pygame.display.set_mode((map_width, map_height))  # Create a window with the size of the image
     pygame.display.set_caption('Map Viewer')
 
-    # Convert initial drone position from cm to pixels
-    drone_pos_px = [drone_pos_cm[0] / PIXELS_PER_CM, drone_pos_cm[1] / PIXELS_PER_CM]
+    drone_pos_px = [drone_pos_cm[0], drone_pos_cm[1]]
 
-    # Start time
-    start_time = time.time()
+    start_time = time.time()  # Start time
+    font = pygame.font.Font(None, 24)  # Font for displaying text
 
-    # Font for displaying text
-    font = pygame.font.Font(None, 24)
-
-    # Main loop to keep the window open
     while True:
         current_time = time.time()
         elapsed_time = current_time - start_time
@@ -57,105 +54,93 @@ def display_map(image_path, drone_pos_cm):
         minutes_remaining = int(time_remaining // 60)
         seconds_remaining = int(time_remaining % 60)
 
-        for event in pygame.event.get():
-            if event.type == QUIT or elapsed_time >= BATTERY_LIFE_SECONDS:
-                pygame.quit()
-                sys.exit()
+        # Detect and color the map
+        detect_and_color_map(screen, drone_pos_px, map_image)
 
-        # Move the drone
-        move_drone(map_image, drone_pos_px)
+        # Move to the farthest detected point
+        move_to_farthest_point(drone_pos_px, map_image)
 
-        # Draw the image onto the screen
-        screen.blit(map_image, (0, 0))
-
-        # Draw the drone and its detection range on the map
-        draw_drone_and_detect(screen, drone_pos_px, map_image)
-
-        # Draw the time remaining
+        screen.blit(map_image, (0, 0))  # Draw the image onto the screen
+        draw_drone(screen, drone_pos_px)  # Draw the drone on the map
         draw_text(screen, f"Time Remaining: {minutes_remaining:02d}:{seconds_remaining:02d}", font, TEXT_COLOR,
-                  (10, 10))
+                  (10, 10))  # Draw the time remaining
+        pygame.display.update()  # Update the display
 
-        # Update the display
-        pygame.display.update()
-
-        # Sleep to simulate the sensor update rate
-        time.sleep(1 / SENSOR_RATE)
+        time.sleep(1 / SENSOR_RATE)  # Sleep to simulate the sensor update rate
 
 
-# Function to move the drone
-def move_drone(map_image, drone_pos_px):
-    # Calculate the next position
-    next_pos_px = list(drone_pos_px)
+def detect_and_color_map(screen, drone_pos_px, map_image):
+    global detect_distance_up, detect_distance_down, detect_distance_left, detect_distance_right
 
-    # Determine the direction of movement based on the current position and the direction with the most white pixels
-    directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]  # Right, Left, Down, Up
-    max_white_pixels = -1
-    best_direction = (0, 0)
-
-    for dx, dy in directions:
-        x = int(drone_pos_px[0] + dx * DETECTION_RANGE_PX)
-        y = int(drone_pos_px[1] + dy * DETECTION_RANGE_PX)
-        if 0 <= x < map_image.get_width() and 0 <= y < map_image.get_height():
-            white_pixels = 0
-            for i in range(DETECTION_RANGE_PX):
-                x_pos = int(drone_pos_px[0] + dx * i)
-                y_pos = int(drone_pos_px[1] + dy * i)
-                if map_image.get_at((x_pos, y_pos)) == WHITE:
-                    white_pixels += 1
-            if white_pixels > max_white_pixels:
-                max_white_pixels = white_pixels
-                best_direction = (dx, dy)
-
-    next_pos_px[0] += best_direction[0] * DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
-    next_pos_px[1] += best_direction[1] * DRONE_SPEED_PX_PER_SEC / SENSOR_RATE
-
-    # Update the drone position
-    drone_pos_px[:] = next_pos_px
-
-
-# Function to draw the drone and its detection range on the map
-def draw_drone_and_detect(screen, drone_pos_px, map_image):
     center_x, center_y = int(drone_pos_px[0]), int(drone_pos_px[1])
-
-    # Detect and color the area
-    detect_and_color(screen, center_x, center_y, map_image)
-
-    # Draw the drone as a circle
     pygame.draw.circle(screen, RED, (center_x, center_y), DRONE_RADIUS_PX)
 
-
-# Function to detect the map area and color it yellow using flood fill algorithm
-# Function to detect the map area and color it yellow
-def detect_and_color(screen, center_x, center_y, map_image):
-    directions = [
-        (0, -DETECTION_RANGE_PX),  # Forward (up)
-        (0, DETECTION_RANGE_PX),  # Backward (down)
-        (DETECTION_RANGE_PX, 0),  # Right
-        (-DETECTION_RANGE_PX, 0)  # Left
-    ]
+    directions = [(x, y) for x in range(-1, 2) for y in range(-1, 2) if not (x == 0 and y == 0)]
+    max_distance = 0
+    farthest_point = None
 
     for dx, dy in directions:
+        detected_distance = float('inf')
         for i in range(1, DETECTION_RANGE_PX + 1):
-            x = center_x + dx * i // DETECTION_RANGE_PX
-            y = center_y + dy * i // DETECTION_RANGE_PX
+            x = center_x + dx * i
+            y = center_y + dy * i
             if 0 <= x < screen.get_width() and 0 <= y < screen.get_height():
-                color = map_image.get_at((x, y))
+                color = screen.get_at((x, y))
                 if color == WHITE:
                     screen.set_at((x, y), YELLOW)
+                    map_image.set_at((x, y), YELLOW)
+                    detected_distance = i
+                    if detected_distance > max_distance:
+                        max_distance = detected_distance
+                        farthest_point = (x, y)
+                elif color == BLACK:
+                    break
+
+    if farthest_point:
+        POINT_HISTORY.append(Point(farthest_point[0], farthest_point[1]))
 
 
-# Function to draw text on the screen
+def move_to_farthest_point(drone_pos_px, map_image):
+    if not POINT_HISTORY:
+        return
+
+    farthest_point = POINT_HISTORY[-1]
+    new_pos_px = move_drone(drone_pos_px, (farthest_point.x, farthest_point.y))
+    if new_pos_px:
+        drone_pos_px[0] = new_pos_px[0]
+        drone_pos_px[1] = new_pos_px[1]
+
+
+def move_drone(current_pos_px, target_pos_px):
+    dx = target_pos_px[0] - current_pos_px[0]
+    dy = target_pos_px[1] - current_pos_px[1]
+    distance = (dx ** 2 + dy ** 2) ** 0.5
+
+    if distance == 0:
+        return None
+
+    move_distance = min(DRONE_SPEED_PX_PER_SEC / SENSOR_RATE, distance)
+    ratio = move_distance / distance
+
+    new_x = current_pos_px[0] + dx * ratio
+    new_y = current_pos_px[1] + dy * ratio
+
+    return [new_x, new_y]
+
+
+def draw_drone(screen, drone_pos_px):
+    center_x, center_y = int(drone_pos_px[0]), int(drone_pos_px[1])
+    pygame.draw.circle(screen, RED, (center_x, center_y), DRONE_RADIUS_PX)
+    for point in POINT_HISTORY:
+        pygame.draw.circle(screen, GREEN, (point.x, point.y), DRONE_RADIUS_PX)
+
+
 def draw_text(screen, text, font, color, position):
     text_surface = font.render(text, True, color)
     screen.blit(text_surface, position)
 
 
-# Main function
 if __name__ == "__main__":
-    # Path to the image file
     image_path = "C:\\Users\\dovy4\\Desktop\\אוניברסיטה גיבוי 3.3.2022\\שנה ד סמסטר ב\\רובוטים אוטונומיים\\מטלה 1\\EX1\\Maps\\p11.png"
-
-    # Drone position in cm (x, y)
-    drone_position_cm = (300, 150)  # Example position
-
+    drone_position_cm = (110, 70)  # Example position
     display_map(image_path, drone_position_cm)

@@ -72,7 +72,8 @@ def display_map(image_path, drone_pos_cm):
     main_movment_direction = direction
     prev_dist_wall = float('inf')
     # Main loop to keep the window open
-
+    p = False
+    count = 0
     while True:
         dist_dict = {(0, -1): detect_distance_up, (0, 1): detect_distance_down, (-1, 0): detect_distance_left,(1, 0): detect_distance_right}  # up down right left
         current_time = time.time()
@@ -84,6 +85,10 @@ def display_map(image_path, drone_pos_cm):
         # movement
         potential_position_wall = move_drone(drone_pos_px,map_image,following_wall_direction)
         potential_position_main_movment = move_drone(drone_pos_px, map_image, main_movment_direction)
+        if p:
+            count = count+1
+            if potential_position_main_movment is not None:
+                potential_position_wall = None
 
         if potential_position_wall is not None: # if i can go to the wall go
             drone_pos_px = potential_position_wall
@@ -93,14 +98,33 @@ def display_map(image_path, drone_pos_cm):
             drone_pos_px = potential_position_main_movment
             direction = main_movment_direction
 
+        elif p == True:#(dist_dict[tuple(main_movment_direction)] > 30) and (potential_position_main_movment is None): # i detected but could not go
+            opesit_wall = [following_wall_direction[0]*-1,following_wall_direction[1]*-1]
+            drone_pos_px = move_drone(drone_pos_px,map_image,opesit_wall)
+
         elif (potential_position_wall is None) and (potential_position_main_movment is None) and (following_wall_direction ==  main_movment_direction): #if i cant got ither way and its the start
             main_movment_direction = direction_change(main_movment_direction)
 
         elif (potential_position_wall is None) and (potential_position_main_movment is None): # this hopefully is when i am in a corner
             following_wall_direction = main_movment_direction
 
+        prev_dist_wall = dist_dict[tuple(following_wall_direction)]
+
         screen.blit(map_image, (0, 0)) # Draw the image onto the screen
         draw_drone_detect_and_color(screen, drone_pos_px, map_image) # Draw the drone and its detection range on the map
+        dist_dict = {(0, -1): detect_distance_up, (0, 1): detect_distance_down, (-1, 0): detect_distance_left,(1, 0): detect_distance_right}
+
+        temp = radical_change(prev_dist_wall,following_wall_direction,direction)
+        if temp:
+            save = following_wall_direction
+            following_wall_direction = [main_movment_direction[0] * -1, main_movment_direction[1] * -1]
+            main_movment_direction = save
+            p = True
+
+        if count == 10: #p == True and dist_dict[tuple(following_wall_direction)] > 10 + prev_dist_wall and direction == main_movment_direction:
+            p = False
+            count = 0
+
         draw_text(screen, f"Time Remaining: {minutes_remaining:02d}:{seconds_remaining:02d}", font, TEXT_COLOR,(10, 10)) # Draw the time remaining
         pygame.display.update() # Update the display
 
@@ -109,6 +133,7 @@ def display_map(image_path, drone_pos_cm):
         """
         time.sleep(1 / SENSOR_RATE) # Sleep to simulate the sensor update rate
 # def algo1():
+
 def radical_change(last_wall_dist,wall_direction,movment_direction):
     dist_dict = {(0, -1): detect_distance_up, (0, 1): detect_distance_down, (-1, 0): detect_distance_left,(1, 0): detect_distance_right}  # up down right left
     if last_wall_dist * 2 < dist_dict[tuple(wall_direction)] and wall_direction[0] != movment_direction[0]:  # we lost the wall direction went != wall direction
@@ -176,6 +201,7 @@ def closest_wall_direction(screen, drone_pos_px):
                     break
 
     return direction
+
 '''
 this code needs to be adjusted to only move the drone and not validate the position 
 '''
