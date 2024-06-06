@@ -31,3 +31,8 @@ Moreover, the initial location of the drone is also important. With this algorit
 However, if we start at an edge, the drone can follow a maze superbly. 
 If you examine our code, you will see that we did not change the rotation of the drone. Instead, we found it easier to work with left, right, forward, and backward movements. However, this too may change in the future as the project progresses.   
 For the drone movement, there are two main variables: one is for the wall direction that we are following, and the second is the main movement direction if we are close enough to the wall.   
+
+## How To Run
+1. Open a workspace that can run Python code.
+2. Download the repository and insert the main.py file and the maps directory into your Python workspace.
+3. In the main.py file, in the function main, there is a variable called image_path that you need to update to the correct path for your system. This should be the path to the Maps directory included in this repository.
