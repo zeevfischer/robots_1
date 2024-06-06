@@ -8,7 +8,7 @@ eden mor: 316160332
 daniel musai: 206684755   
 
 ## Drone and Map characteristics
-**Note: all sensors have a rate of 10 times per second **   
+**Note: all sensors have a rate of 10 times per second**   
 **Note: all distance sensors have a typical error if 2% +-**   
 1. Each pixel on the map represents 2.5 cm
 2. on the map WHITE pixel is a path BLACK pixel is an obstacle
