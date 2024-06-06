@@ -86,7 +86,7 @@ def display_map(image_path, drone_pos_cm):
         minutes_remaining = int(time_remaining // 60)
         seconds_remaining = int(time_remaining % 60)
 
-        if elapsed_time >= BATTERY_LIFE_SECONDS:
+        if time_remaining == 0:
             print("Battery life depleted. Exiting...")
             break
 
